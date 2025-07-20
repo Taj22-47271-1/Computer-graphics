@@ -1,0 +1,1658 @@
+#include <windows.h>
+#include <GL/glut.h>
+#include <stdio.h>
+#include <GL/gl.h>
+#include <math.h>
+#include <ctime>
+#include <mmsystem.h>
+#pragma comment(lib, "winmm.lib")
+
+
+void init(void){
+
+    glClearColor(0,0,0,0);
+
+    glMatrixMode(GL_PROJECTION);
+
+    glLoadIdentity();
+
+    gluOrtho2D(-5, 20, 0, 8); // Original projection
+
+    glMatrixMode(GL_MODELVIEW);
+
+    glLoadIdentity();
+
+    glScalef(1, -1, 1); // Flip Y-axis
+
+    glTranslatef(0, -8, 0); // Adjust position after flipping
+
+}
+
+
+float left_to_right = -15.0f;
+bool isDay = false; // false = night (default), true = day
+float clockAngle = 0.0f;
+
+float right_to_left = 1.0f;
+//car
+float car1PosX = -5.0f;
+float car2PosX = 15.0f;
+float car3PosX = -10.0f;
+
+bool car1Right = true;
+bool car2Right = false;
+bool car3Right = true;
+float planePosX = -3.0f;     // Plane's X position
+bool isPlaneActive = false; // Flag to control drawing/movement
+bool isCloudMoving = true;
+bool isRaining = false; // NEW: To toggle rain
+
+void updateScene();
+float tx = 0.0f;
+float ty = 0.0f;
+
+
+void circleRain(GLfloat rx,GLfloat ry,GLfloat cx,GLfloat cy){
+    glBegin(GL_TRIANGLE_FAN);
+    glVertex2f(cx,cy);
+
+    for(int i=0;i<=100;i++){
+        float angle = 2.0f * 3.1416f * i/100;
+        float x = rx * cosf(angle);
+        float y = ry * sinf(angle);
+        glVertex2f((x+cx),(y+cy));
+    }
+    glEnd();
+}
+
+void rain(){
+    for(int i=0;i<20;i++){
+        for(int j=0;j<15;j++){
+            glColor3ub(242,242,242);
+            circleRain(0.02f, 0.04f, (i*0.1f)+rand()%25-5, (i*0.1f)+rand()%8+0);
+            glFlush();
+        }
+    }
+}
+
+void spe_key(int key, int x, int y){
+    switch (key) {
+        case GLUT_KEY_LEFT:
+            tx -= 0.00f;
+            break;
+        case GLUT_KEY_RIGHT:
+            tx += 0.0f;
+            break;
+        case GLUT_KEY_UP:
+            ty += 0.1f;
+            break;
+        case GLUT_KEY_DOWN:
+            ty -= 0.1f;
+            break;
+    }
+    glutPostRedisplay();
+}
+
+void my_keyboard(unsigned char key, int x, int y){
+    switch (key) {
+        case 'p':
+        case 'P':
+            isPlaneActive = true;
+            break;
+
+        case 'd':
+        case 'D':
+            isDay = true;
+            break;
+
+        case 'n':
+        case 'N':
+            isDay = false;
+            break;
+
+        case 'r':
+        case 'R':
+            isRaining = true;  // Start rain
+            break;
+
+        case 's':
+        case 'S':
+            isRaining = false; // Stop rain
+            break;
+    }
+
+    glutPostRedisplay(); // Update display
+}
+
+
+
+void my_mouse(int button, int state, int x, int y){
+    if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN) {
+        isCloudMoving = false;  // Stop cloud movement
+    }
+    if ((button == GLUT_RIGHT_BUTTON || button == GLUT_MIDDLE_BUTTON) && state == GLUT_DOWN) {
+        isCloudMoving = true;   // Resume cloud movement
+    }
+}
+
+
+void lefttoright_cloud(){
+    if(left_to_right <= 20){
+        left_to_right = left_to_right + 0.0005;
+    }else{
+        left_to_right = -15;
+    }
+    glutPostRedisplay();
+}
+//car move
+void moveCars() {
+    // Move plane if active
+    if (isPlaneActive) {
+        planePosX += 0.008f;
+        if (planePosX > 30.0f)
+            planePosX = -5.0f;
+    }
+
+    // Move cars
+    if (car1Right) {
+        car1PosX += 0.010f;
+        if (car1PosX > 20.0f) car1PosX = -5.0f;
+    }
+    if (!car2Right) {
+        car2PosX -= 0.01f;
+        if (car2PosX < -5.0f) car2PosX = 20.0f;
+    }
+    if (car3Right) {
+        car3PosX += 0.01f;
+        if (car3PosX > 20.0f) car3PosX = -10.0f;
+    }
+
+    glutPostRedisplay();
+}
+
+
+
+void righttoleft_cloud(){
+    if(right_to_left >= -20){
+        right_to_left = right_to_left - 0.0005;
+    }else{
+        right_to_left = 1;
+    }
+    glutPostRedisplay();
+}
+
+void circle(GLfloat rx,GLfloat ry,GLfloat cx,GLfloat cy){
+    glBegin(GL_TRIANGLE_FAN);
+    glVertex2f(cx,cy);
+
+    for(int i=0;i<=100;i++){
+        float angle = 2.0f * 3.1416f * i/100;
+        float x = rx * cosf(angle);
+        float y = ry * sinf(angle);
+        glVertex2f((x+cx),(y+cy));
+    }
+    glEnd();
+}
+
+void circle1(GLfloat rx,GLfloat ry,GLfloat cx,GLfloat cy){
+    if (isCloudMoving) lefttoright_cloud();
+    glBegin(GL_TRIANGLE_FAN);
+    glVertex2f(left_to_right+cx,cy);
+
+    for(int i=0;i<=100;i++){
+        float angle = 2.0f * 3.1416f * i/100;
+        float x = rx * cosf(angle);
+        float y = ry * sinf(angle);
+        glVertex2f((x+left_to_right+cx),(y+cy));
+    }
+    glEnd();
+}
+
+void circle2(GLfloat rx,GLfloat ry,GLfloat cx,GLfloat cy){
+    if (isCloudMoving) righttoleft_cloud();
+    glBegin(GL_TRIANGLE_FAN);
+    glVertex2f(right_to_left+cx,cy);
+
+    for(int i=0;i<=100;i++){
+        float angle = 2.0f * 3.1416f * i/100;
+        float x = rx * cosf(angle);
+        float y = ry * sinf(angle);
+        glVertex2f((x+right_to_left+cx),(y+cy));
+    }
+    glEnd();
+}
+
+void circle3(GLfloat rx,GLfloat ry,GLfloat cx,GLfloat cy){
+    glBegin(GL_TRIANGLE_FAN);
+    glVertex2f(cx,cy);
+
+    for(int i=0;i<=100;i++){
+        float angle = 2.0f * 3.1416f * i/100;
+        float x = rx * cosf(angle);
+        float y = ry * sinf(angle);
+        glVertex2f((x+cx),(y+cy));
+    }
+    glEnd();
+}
+
+void fullSky(){
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    if (isDay) {
+        glColor3ub(135, 206, 235); // Day sky (sky blue)
+    } else {
+        glColor3ub(50, 60, 130);   // Night sky (dark blue)
+    }
+
+    glBegin(GL_POLYGON);
+    glVertex2f(-5, 4.0f);
+    glVertex2f(20, 4.0f);
+
+    if (isDay) {
+        glColor3ub(255, 255, 255); // bright bottom
+    } else {
+        glColor3ub(0, 0, 0); // dark bottom
+    }
+
+    glVertex2f(20, 0);
+    glVertex2f(-5, 0);
+    glEnd();
+}
+
+
+void fullBottom(){
+    if (isDay) {
+        glColor3ub(34, 139, 34); // Grass green (ForestGreen)
+    } else {
+        glColor3ub(10, 30, 10);     // Black for night
+    }
+    glBegin(GL_POLYGON);
+    glVertex2f(-5,8);
+    glVertex2f(20,8);
+    glVertex2f(20,4.0f);
+    glVertex2f(-5,4.0f);
+    glEnd();
+}
+
+void moon() {
+    if (!isDay) {
+        glColor3ub(255, 255, 255);
+        circle(1.75f, 1.7f, 5.0f, 2.8f);
+    }
+}
+
+void sun() {
+    if (isDay) {
+        glColor3ub(255, 223, 0);  // bright yellow
+        circle(1.75f, 1.7f, 5.0f, 2.8f);
+    }
+}
+
+
+void cloud1(){
+    glColor3ub(212,212,212);
+    circle1(0.8f, 0.05f, 1.0f, 2.6f);
+    circle1(0.35f, 0.05f, 0.75f, 2.5f);
+    circle1(0.2f, 0.2f, 0.9f, 2.4f);
+    circle1(0.2f, 0.1f, 1.15f, 2.5f);
+}
+void campfire() {
+    float baseX = 18.5f;
+    float baseY = 2.8f;
+
+    // 🔥 Logs (brown crossed sticks)
+    glColor3ub(139, 69, 19); // Brown
+    glBegin(GL_POLYGON);
+    glVertex2f(baseX - 0.3f, 8 - baseY);
+    glVertex2f(baseX - 0.2f, 8 - baseY);
+    glVertex2f(baseX + 0.3f, 8 - (baseY + 0.2f));
+    glVertex2f(baseX + 0.2f, 8 - (baseY + 0.2f));
+    glEnd();
+
+    glBegin(GL_POLYGON);
+    glVertex2f(baseX + 0.3f, 8 - baseY);
+    glVertex2f(baseX + 0.2f, 8 - baseY);
+    glVertex2f(baseX - 0.3f, 8 - (baseY + 0.2f));
+    glVertex2f(baseX - 0.2f, 8 - (baseY + 0.2f));
+    glEnd();
+
+    // 🔥 Flames (only at night)
+    if (!isDay) {
+        glColor3ub(255, 69, 0); // Red-orange
+        circle(0.15f, 0.2f, baseX, 8 - (baseY + 0.3f));
+
+        glColor3ub(255, 140, 0); // Orange
+        circle(0.1f, 0.15f, baseX, 8 - (baseY + 0.4f));
+
+        glColor3ub(255, 255, 0); // Yellow
+        circle(0.05f, 0.1f, baseX, 8 - (baseY + 0.5f));
+    }
+}
+void bench_beside_campfire() {
+    float xOffset = 18.2f;   // Slightly left of campfire (smaller now)
+    float yOffset = 7.5 - 2.8f; // Same Y level as fire (Y flipped)
+
+    glPushMatrix();
+    glTranslatef(xOffset, yOffset, 0.0f);
+    glScalef(0.25f, 0.25f, 1.0f);  // Shrink the entire bench
+
+    // Legs
+    glBegin(GL_POLYGON); glColor3ub(0,0,0);
+    glVertex2f(0,0); glVertex2f(0,1);
+    glVertex2f(0.0728,1.003); glVertex2f(0.0801, -0.036); glEnd();
+
+    glBegin(GL_POLYGON); glColor3ub(0,0,0);
+    glVertex2f(0.898, -0.17); glVertex2f(0.899,0.371);
+    glVertex2f(0.950,0.374); glVertex2f(0.9408,-0.168); glEnd();
+
+    glBegin(GL_POLYGON); glColor3ub(0,0,0);
+    glVertex2f(3.926, -0.001); glVertex2f(3.914,1.007);
+    glVertex2f(4,1); glVertex2f(4,0); glEnd();
+
+    glBegin(GL_POLYGON); glColor3ub(0,0,0);
+    glVertex2f(4.983, -0.638); glVertex2f(4.936, -0.640);
+    glVertex2f(4.945,0.365); glVertex2f(5.013,0.370); glEnd();
+
+    // Seat Top
+    glBegin(GL_POLYGON); glColor3ub(220, 217, 197);
+    glVertex2f(1, -2); glVertex2f(0.9809, -0.563);
+    glVertex2f(4.983, -0.638); glVertex2f(5, -2); glEnd();
+
+    // Seat Front
+    glBegin(GL_POLYGON); glColor3ub(42, 38, 13);
+    glVertex2f(0.9809, -0.563); glVertex2f(0,0);
+    glVertex2f(4,0); glVertex2f(4.983, -0.638); glEnd();
+
+    glPopMatrix();
+}
+
+
+
+void cloud2(){
+    glColor3ub(255,255,255);
+    circle1(0.8f, 0.05f, 6.2f, 0.7f);
+    circle1(0.35f, 0.05f, 5.95f, 0.6f);
+    circle1(0.2f, 0.2f, 6.1f, 0.5f);
+    circle1(0.2f, 0.1f, 6.35f, 0.6f);
+}
+
+void cloud3(){
+    glColor3ub(164,164,164);
+    circle2(1.0f, 0.1f, 9.0f, 1.5f);
+    circle2(0.35f, 0.05f, 8.75f, 1.6f);
+    circle2(0.2f, 0.15f, 8.9f, 1.6f);
+    circle2(0.2f, 0.1f, 9.2f, 1.65f);
+    circle2(0.8f, 0.1f, 9.1f, 1.35f);
+}
+
+void bridge_pillar(){
+    glColor3ub(0,0,0);
+    glBegin(GL_POLYGON);
+    glVertex2f(4.9f,2.8f);
+    glVertex2f(5.0f,2.8f);
+    glVertex2f(5.0f,2.05f);
+    glVertex2f(4.9f,2.05f);
+    glEnd();
+
+    glColor3ub(0,0,0);
+    glBegin(GL_POLYGON);
+    glVertex2f(5.2f,2.8f);
+    glVertex2f(5.3f,2.8f);
+    glVertex2f(5.3f,1.95f);
+    glVertex2f(5.2f,1.95f);
+    glEnd();
+
+    glColor3ub(0,0,0);
+    glBegin(GL_POLYGON);
+    glVertex2f(5.0f,2.5f);
+    glVertex2f(5.2f,2.5f);
+    glVertex2f(5.2f,2.4f);
+    glVertex2f(5.0f,2.4f);
+    glEnd();
+
+    glColor3ub(44,33,41);
+    glLineWidth(0.05f);
+    glBegin(GL_LINES);
+    glVertex2f(4.8f,2.8f);
+    glVertex2f(4.9f,2.7f);
+    glVertex2f(4.6f,2.8f);
+    glVertex2f(4.9f,2.5f);
+    glVertex2f(4.4f,2.8f);
+    glVertex2f(4.9f,2.3f);
+    glVertex2f(4.2f,2.8f);
+    glVertex2f(4.9f,2.1f);
+    glVertex2f(5.3f,2.6f);
+    glVertex2f(5.5f,2.8f);
+    glVertex2f(5.3f,2.4f);
+    glVertex2f(5.7f,2.8f);
+    glVertex2f(5.3f,2.2f);
+    glVertex2f(5.8f,2.7f);
+    glVertex2f(5.3f,2.0f);
+    glVertex2f(5.8f,2.5f);
+    for(float x = 0.0f; x < 15.0f; x += 1.5f) {
+        glColor3ub(70, 70, 70);
+        glBegin(GL_POLYGON);
+        glVertex2f(x+4.9f, 2.8f);
+        glVertex2f(x+5.0f, 2.8f);
+        glVertex2f(x+5.0f, 2.05f);
+        glVertex2f(x+4.9f, 2.05f);
+        glEnd();
+    }
+}
+
+void bridge_road(){
+    // Extend the road to full width
+    if (isDay) {
+        glColor3ub(100, 100, 100);  // Light gray for day
+    } else {
+        glColor3ub(60, 60, 60);     // Dark gray for night
+    }
+    glBegin(GL_POLYGON);
+    glVertex2f(-5.0f, 2.8f);        // Left end of road
+    glVertex2f(20.0f, 2.8f);        // Right end of road
+    glVertex2f(20.0f, 2.5f);        // Bottom-right
+    glVertex2f(-5.0f, 2.5f);        // Bottom-left
+    glEnd();
+
+    // Road markings (dashed lines)
+    glColor3ub(255, 255, 200);      // Light yellow markings
+    glLineWidth(1.5f);
+    glEnable(GL_LINE_STIPPLE);
+    glLineStipple(3, 0x00FF);       // Dashed pattern
+
+    glBegin(GL_LINES);
+    for(float x = -4.0f; x < 19.0f; x += 2.0f) {
+        glVertex2f(x, 2.65f);
+        glVertex2f(x+1.0f, 2.65f);
+    }
+    glEnd();
+
+    glDisable(GL_LINE_STIPPLE);
+}
+
+void bridge_body(){
+    glColor3ub(0,0,0);
+    glBegin(GL_POLYGON);
+    glVertex2f(3.9f,3.3f);
+    glVertex2f(5.8f,3.3f);
+    glVertex2f(5.8f,2.9f);
+    glVertex2f(3.9f,2.9f);
+    glEnd();
+}
+
+void bridge_under(){
+    glColor3ub(19,17,96);
+    circle(0.95f, 0.2f, 4.85f, 3.3f);
+}
+void drawClockTower(float x, float y) {
+    // Tower base
+    glColor3ub(139, 69, 19); // Brown
+    glBegin(GL_POLYGON);
+    glVertex2f(x - 0.3f, y);
+    glVertex2f(x + 0.3f, y);
+    glVertex2f(x + 0.3f, y + 0.3f);
+    glVertex2f(x - 0.3f, y + 0.3f);
+    glEnd();
+
+    // Tower body
+    glColor3ub(184, 134, 11); // Dark goldenrod
+    glBegin(GL_POLYGON);
+    glVertex2f(x - 0.2f, y + 0.3f);
+    glVertex2f(x + 0.2f, y + 0.3f);
+    glVertex2f(x + 0.2f, y + 1.5f);
+    glVertex2f(x - 0.2f, y + 1.5f);
+    glEnd();
+
+    // Tower top
+    glColor3ub(160, 82, 45); // Sienna
+    glBegin(GL_POLYGON);
+    glVertex2f(x - 0.25f, y + 1.5f);
+    glVertex2f(x + 0.25f, y + 1.5f);
+    glVertex2f(x, y + 1.8f);
+    glEnd();
+
+    // Clock face
+    float clockCenterX = x;
+    float clockCenterY = y + 1.2f;
+    float clockRadius = 0.15f;
+
+    // Get current time
+    time_t now = time(0);
+    tm *ltm = localtime(&now);
+    int hours = ltm->tm_hour;
+    int minutes = ltm->tm_min;
+    int seconds = ltm->tm_sec;
+
+    // Convert to 12-hour format
+    hours = hours % 12;
+
+    // Draw clock face
+    if (isDay) {
+        glColor3ub(240, 240, 240); // Light gray for day
+    } else {
+        glColor3ub(200, 200, 200); // Darker gray for night
+    }
+    circle(clockRadius, clockRadius, clockCenterX, clockCenterY);
+
+    // Draw clock marks
+    glColor3ub(0, 0, 0); // Black
+    glPointSize(2.0f);
+    glBegin(GL_POINTS);
+    for(int i = 0; i < 12; i++) {
+        float angle = i * 30.0f * 3.1416f / 180.0f;
+        float markX = clockCenterX + (clockRadius - 0.03f) * cosf(angle);
+        float markY = clockCenterY + (clockRadius - 0.03f) * sinf(angle);
+        glVertex2f(markX, markY);
+    }
+    glEnd();
+
+    // Calculate angles for hands
+    float hourAngle = (hours * 30.0f + minutes * 0.5f) * 3.1416f / 180.0f;
+    float minuteAngle = (minutes * 6.0f) * 3.1416f / 180.0f;
+    float secondAngle = (seconds * 6.0f) * 3.1416f / 180.0f;
+
+    // Draw hour hand
+    glLineWidth(2.0f);
+    glBegin(GL_LINES);
+    glVertex2f(clockCenterX, clockCenterY);
+    glVertex2f(clockCenterX + 0.08f * cosf(hourAngle),
+               clockCenterY + 0.08f * sinf(hourAngle));
+    glEnd();
+
+    // Draw minute hand
+    glLineWidth(1.5f);
+    glBegin(GL_LINES);
+    glVertex2f(clockCenterX, clockCenterY);
+    glVertex2f(clockCenterX + 0.12f * cosf(minuteAngle),
+               clockCenterY + 0.12f * sinf(minuteAngle));
+    glEnd();
+
+    // Draw second hand
+    glColor3ub(255, 0, 0); // Red
+    glLineWidth(1.0f);
+    glBegin(GL_LINES);
+    glVertex2f(clockCenterX, clockCenterY);
+    glVertex2f(clockCenterX + 0.12f * cosf(secondAngle),
+               clockCenterY + 0.12f * sinf(secondAngle));
+    glEnd();
+
+    // Draw center cap
+    glColor3ub(0, 0, 0); // Black
+    circle(0.015f, 0.015f, clockCenterX, clockCenterY);
+}
+void left_city() {
+    // Add this at the beginning of the function
+    glPushMatrix();
+    glTranslatef(-5.0f, -0.2f, 0.0f);// Lower buildings to road level
+    glScalef(2.0f, 1.0f, 2.0f);      // NEW: Slightly reduce vertical height
+    // Building 1
+    if (isDay) {
+        glColor3ub(169, 169, 169);  // Light gray for day
+    } else {
+        glColor3ub(70,80,90);  // Black for night
+    }
+    glBegin(GL_POLYGON);
+    glVertex2f(3.4f,3.3f);
+    glVertex2f(3.9f,3.3f);
+    glVertex2f(3.9f,1.8f);
+    glVertex2f(3.4f,2.1f);
+    glEnd();
+  // Building 2
+    if (isDay) {
+        glColor3ub(70, 130, 180 );  // Light sky blue for day
+    } else {
+         glColor3ub(30,60,90);  // Black for night
+    }
+    glBegin(GL_POLYGON);
+    glVertex2f(2.4f,3.8f);
+    glVertex2f(3.0f,3.5f);
+    glVertex2f(3.0f,1.7f);
+    glVertex2f(2.4f,1.9f);
+    glEnd();
+   // Building 3
+    if (isDay) {
+        glColor3ub(70, 130, 180 );  // Light gray for day
+    } else {
+        glColor3ub(35,60,90);  // Black for night
+    }
+    glBegin(GL_POLYGON);
+    glVertex2f(2.3f,3.7f);
+    glVertex2f(2.8f,2.9f);
+    glVertex2f(2.8f,1.8f);
+    glVertex2f(2.3f,1.5f);
+    glEnd();
+   // Building 4
+    if (isDay) {
+        glColor3ub(70, 130, 180);  // Light gray for day
+    } else {
+        glColor3ub(35,60,90);  // Black for night
+    }
+    glBegin(GL_POLYGON);
+    glVertex2f(1.5f,2.5f);
+    glVertex2f(1.9f,2.3f);
+    glVertex2f(1.9f,1.9f);
+    glVertex2f(1.5f,1.9f);
+    glEnd();
+   // Building 5
+    if (isDay) {
+        glColor3ub(70, 130, 180);  // Light gray for day
+    } else {
+         glColor3ub(35,60,90);  // Black for night
+    }
+    glBegin(GL_POLYGON);
+    glVertex2f(0.4f,3.8f);
+    glVertex2f(1.1f,3.8f);
+    glVertex2f(1.1f,1.9f);
+    glVertex2f(0.4f,2.3f);
+    glEnd();
+   // Building 6
+    if (isDay) {
+        glColor3ub(150, 84, 17 );  // Light gray for day
+    } else {
+        glColor3ub(60,30,10);  // Black for night
+    }
+    glBegin(GL_POLYGON);
+    glVertex2f(2.4f,3.8f);
+    glVertex2f(2.8f,3.6f);
+    glVertex2f(2.8f,2.4f);
+    glVertex2f(2.4f,2.6f);
+    glEnd();
+   // Building 7
+    if (isDay) {
+        glColor3ub(237, 128, 19 );  // Light gray for day
+    } else {
+        glColor3ub(90,50,10);  // Black for night
+    }
+    glBegin(GL_POLYGON);
+    glVertex2f(2.8f,3.6f);
+    glVertex2f(3.3f,3.6f);
+    glVertex2f(3.3f,2.3f);
+    glVertex2f(2.8f,2.3f);
+    glEnd();
+   // Building 8
+    if (isDay) {
+        glColor3ub(237, 88, 19 );  // Light gray for day
+    } else {
+        glColor3ub(90,50,10);  // Black for night
+    }
+    glBegin(GL_POLYGON);
+    glVertex2f(3.3f,3.6f);
+    glVertex2f(3.7f,3.4f);
+    glVertex2f(3.7f,2.6f);
+    glVertex2f(3.3f,2.3f);
+    glEnd();
+
+    // Building 9
+    if (isDay) {
+        glColor3ub(245, 118, 59 );  // Light gray for day
+    } else {
+        glColor3ub(100,45,20);  // Black for night
+    }
+    glBegin(GL_POLYGON);
+    glVertex2f(0.9f,3.7f);
+    glVertex2f(1.4f,3.7f);
+    glVertex2f(1.4f,2.4f);
+    glVertex2f(0.9f,2.4f);
+    glEnd();
+   // Building 10
+    if (isDay) {
+        glColor3ub(34, 118, 126);  // Light gray for day
+    } else {
+        glColor3ub(20,50,60);  // Black for night
+    }
+    glBegin(GL_POLYGON);
+    glVertex2f(1.3f,4.1f);
+    glVertex2f(1.7f,4.1f);
+    glVertex2f(1.7f,2.2f);
+    glVertex2f(1.3f,2.5f);
+    glEnd();
+
+    // Windows
+    if (isDay) {
+        glColor3ub(173, 216, 230);  // Light blue for day windows
+    } else {
+         glColor3ub(70,90,0);  // Black for night
+    }
+    glLineWidth(0.03f);
+    glBegin(GL_LINES);
+    glVertex2f(1.3f,2.7f);
+    glVertex2f(1.7f,2.4f);
+    glVertex2f(1.3f,2.9f);
+    glVertex2f(1.7f,2.7f);
+    glVertex2f(1.3f,3.1f);
+    glVertex2f(1.7f,3.0f);
+    glVertex2f(1.3f,3.3f);
+    glVertex2f(1.7f,3.3f);
+    glVertex2f(1.3f,3.5f);
+    glVertex2f(1.7f,3.6f);
+    glVertex2f(1.3f,3.7f);
+    glVertex2f(1.7f,3.9f);
+    glEnd();
+ // Windows
+    if (isDay) {
+        glColor3ub(173, 216, 230);  // Light blue for day windows
+    } else {
+        glColor3ub(251, 252, 164);  // Yellow for night windows
+    }
+    glBegin(GL_LINES);
+    glVertex2f(1.7f,4.1f);
+    glVertex2f(1.7f,2.2f);
+    glEnd();
+// Building 11
+    if (isDay) {
+        glColor3ub(70, 130, 180);  // Light gray for day
+    } else {
+        glColor3ub(70,90,100);  // Black for night
+    }
+    glBegin(GL_POLYGON);
+    glVertex2f(1.7f,4.1f);
+    glVertex2f(2.2f,3.9f);
+    glVertex2f(2.2f,2.2f);
+    glVertex2f(1.7f,2.2f);
+    glEnd();
+// Windows
+    if (isDay) {
+        glColor3ub(173, 216, 230);  // Light blue for day windows
+    } else {
+        glColor3ub(251, 252, 164);  // Yellow for night windows
+    }
+    glLineWidth(0.03f);
+    glBegin(GL_LINES);
+    glVertex2f(1.7f,2.4f);
+    glVertex2f(2.2f,2.4f);
+    glVertex2f(1.7f,2.7f);
+    glVertex2f(2.2f,2.7f);
+    glVertex2f(1.7f,3.0f);
+    glVertex2f(2.2f,3.0f);
+    glVertex2f(1.7f,3.3f);
+    glVertex2f(2.2f,3.3f);
+    glVertex2f(1.7f,3.6f);
+    glVertex2f(2.2f,3.6f);
+    glVertex2f(1.7f,3.9f);
+    glVertex2f(2.2f,3.9f);
+    glEnd();
+// Building 12
+    if (isDay) {
+        glColor3ub(109, 81, 31);  // Light gray for day
+    } else {
+        glColor3ub(45,30,10);  // Black for night
+    }
+    glBegin(GL_POLYGON);
+    glVertex2f(0.0f,5.2f);
+    glVertex2f(0.6f,4.7f);
+    glVertex2f(0.6f,3.0f);
+    glVertex2f(0.0f,3.0f);
+    glEnd();
+// Building 13
+    if (isDay) {
+        glColor3ub(86, 134, 146);  // Light gray for day
+    } else {
+        glColor3ub(35,55,60);  // Black for night
+    }
+    glBegin(GL_POLYGON);
+    glVertex2f(1.0f,4.5f);
+    glVertex2f(1.5f,4.5f);
+    glVertex2f(1.5f,3.1f);
+    glVertex2f(1.0f,3.1f);
+    glEnd();
+// Building 14
+    if (isDay) {
+        glColor3ub(88, 189, 142);  // Light gray for day
+    } else {
+        glColor3ub(120,180,160);  // Black for night
+    }
+    glBegin(GL_POLYGON);
+    glVertex2f(0.7f,4.8f);
+    glVertex2f(1.1f,4.8f);
+    glVertex2f(1.1f,3.6f);
+    glVertex2f(0.7f,3.6f);
+    glEnd();
+// Building 15
+    if (isDay) {
+        glColor3ub(73, 191, 107);  // Light gray for day
+    } else {
+         glColor3ub(101,67,33);  // Black for night
+    }
+    glBegin(GL_POLYGON);
+    glVertex2f(0.2f,5.4f);
+    glVertex2f(0.7f,5.2f);
+    glVertex2f(0.7f,3.5f);
+    glVertex2f(0.2f,3.9f);
+    glEnd();
+// Windows
+    if (isDay) {
+        glColor3ub(173, 216, 230);  // Light blue for day windows
+    } else {
+        glColor3ub(251, 252, 164);  // Yellow for night windows
+    }
+    glLineWidth(0.01f);
+    glBegin(GL_LINES);
+    glVertex2f(0.2f,5.4f);
+    glVertex2f(0.2f,3.9f);
+    glVertex2f(0.2f,3.9f);
+    glVertex2f(0.7f,3.5f);
+    glVertex2f(0.7f,3.5f);
+    glVertex2f(0.7f,5.2f);
+    glVertex2f(0.7f,3.6f);
+    glVertex2f(1.1f,3.6f);
+    glVertex2f(0.7f,3.8f);
+    glVertex2f(1.1f,3.8f);
+    glVertex2f(0.7f,4.0f);
+    glVertex2f(1.1f,4.0f);
+    glVertex2f(0.7f,4.2f);
+    glVertex2f(1.1f,4.2f);
+    glVertex2f(0.7f,4.4f);
+    glVertex2f(1.1f,4.4f);
+    glVertex2f(0.7f,4.6f);
+    glVertex2f(1.1f,4.6f);
+    glVertex2f(1.1f,3.6f);
+    glVertex2f(1.1f,4.6f);
+    glVertex2f(1.0f,3.6f);
+    glVertex2f(1.0f,3.1f);
+    glVertex2f(1.0f,3.1f);
+    glVertex2f(1.5f,3.1f);
+    glVertex2f(1.5f,3.1f);
+    glVertex2f(1.5f,4.5f);
+    glVertex2f(1.3f,3.1f);
+    glVertex2f(1.3f,2.5f);
+    glVertex2f(1.3f,2.5f);
+    glVertex2f(1.7f,2.2f);
+    glVertex2f(1.7f,2.2f);
+    glVertex2f(2.2f,2.2f);
+    glVertex2f(2.2f,2.2f);
+    glVertex2f(2.2f,4.0f);
+    glVertex2f(2.4f,3.8f);
+    glVertex2f(2.4f,2.6f);
+    glVertex2f(2.4f,2.6f);
+    glVertex2f(2.8f,2.6f);
+    glVertex2f(2.8f,2.6f);
+    glVertex2f(2.8f,2.4f);
+    glVertex2f(2.8f,2.4f);
+    glVertex2f(2.4f,2.6f);
+    glVertex2f(2.8f,3.7f);
+    glVertex2f(2.8f,2.3f);
+    glVertex2f(2.8f,2.3f);
+    glVertex2f(3.3f,2.3f);
+    glVertex2f(3.3f,2.3f);
+    glVertex2f(3.3f,3.6f);
+    glVertex2f(3.3f,2.3f);
+    glVertex2f(3.7f,2.6f);
+    glVertex2f(3.7f,2.6f);
+    glVertex2f(3.7f,3.3f);
+    glEnd();
+     glPopMatrix();
+}
+
+
+
+void right_city() {
+    // Add this at the beginning of the function
+   glPushMatrix();
+glTranslatef(-3.0f, -0.5f, 0.0f);  // Shift left and down
+glScalef(2.0f, 1.5f, 2.0f);      // Slight vertical shrink
+    // Building 1
+    if (isDay) {
+        glColor3ub(192, 192, 192);  // Silver for day
+    } else {
+        glColor3ub(80,80,90);  // Black for night
+    }
+    glBegin(GL_POLYGON);
+    glVertex2f(6.1f,2.7f);
+    glVertex2f(6.6f,2.7f);
+    glVertex2f(6.6f,1.8f);
+    glVertex2f(6.1f,1.8f);
+    glEnd();
+
+   // Building 2
+    if (isDay) {
+        glColor3ub(70, 130, 180);  // Steel blue for day
+    } else {
+         glColor3ub(40,80,110);  // Black for night
+    }
+    glBegin(GL_POLYGON);
+    glVertex2f(5.8f,3.3f);
+    glVertex2f(6.4f,3.4f);
+    glVertex2f(6.4f,2.0f);
+    glVertex2f(5.8f,2.3f);
+    glEnd();
+
+    // Building 3
+    if (isDay) {
+        glColor3ub(135, 206, 250);  // Steel blue for day
+    } else {
+         glColor3ub(40,70,100);  // Black for night
+    }
+    glBegin(GL_POLYGON);
+    glVertex2f(7.5f,3.0f);
+    glVertex2f(7.9f,3.0f);
+    glVertex2f(7.9f,1.5f);
+    glVertex2f(7.5f,1.5f);
+    glEnd();
+
+    // Building 4
+    if (isDay) {
+        glColor3ub(112, 130, 144);  // Steel blue for day
+    } else {
+        glColor3ub(50,60,70);  // Black for night
+    }
+    glBegin(GL_POLYGON);
+    glVertex2f(8.1f,2.5f);
+    glVertex2f(8.5f,2.5f);
+    glVertex2f(8.5f,1.9f);
+    glVertex2f(8.1f,1.9f);
+    glEnd();
+
+// Building 5
+    if (isDay) {
+        glColor3ub(237, 201, 175);  // Steel blue for day
+    } else {
+         glColor3ub(120,100,80);  // Black for night
+    }
+    glBegin(GL_POLYGON);
+    glVertex2f(8.6f,2.7f);
+    glVertex2f(9.1f,2.7f);
+    glVertex2f(9.1f,1.55f);
+    glVertex2f(8.6f,1.55f);
+    glEnd();
+
+   // Building 6
+    if (isDay) {
+        glColor3ub(227, 201, 155);  // Steel blue for day
+    } else {
+        glColor3ub(110,100,70);  // Black for night
+    }
+    glBegin(GL_POLYGON);
+    glVertex2f(9.2f,3.0f);
+    glVertex2f(9.8f,3.0f);
+    glVertex2f(9.8f,1.8f);
+    glVertex2f(9.2f,1.8f);
+    glEnd();
+
+   // Building 7
+    if (isDay) {
+        glColor3ub(128, 0, 128);  // Steel blue for day
+    } else {
+        glColor3ub(50,80,50);  // Black for night
+    }
+    glBegin(GL_POLYGON);
+    glVertex2f(6.4f,3.4f);
+    glVertex2f(6.7f,3.4f);
+    glVertex2f(6.7f,2.55f);
+    glVertex2f(6.4f,2.55f);
+    glEnd();
+
+    // Building 8
+    if (isDay) {
+        glColor3ub(150, 50, 50);  // Steel blue for day
+    } else {
+       glColor3ub(70,25,25);  // Black for night
+    }
+    glBegin(GL_POLYGON);
+    glVertex2f(6.9f,3.7f);
+    glVertex2f(7.5f,3.8f);
+    glVertex2f(7.5f,2.2f);
+    glVertex2f(6.9f,2.2f);
+    glEnd();
+
+  // Building 9
+    if (isDay) {
+        glColor3ub(150, 50, 50);  // Steel blue for day
+    } else {
+        glColor3ub(70,25,25);  // Black for night
+    }
+    glBegin(GL_POLYGON);
+    glVertex2f(7.0f,2.2f);
+    glVertex2f(7.4f,2.2f);
+    glVertex2f(7.4f,2.0f);
+    glVertex2f(7.0f,2.0f);
+    glEnd();
+
+   // Building 10
+    if (isDay) {
+        glColor3ub(80,40,25);  // Steel blue for day
+    } else {
+       glColor3ub(80,40,25);  // Black for night
+    }
+    glBegin(GL_POLYGON);
+    glVertex2f(7.1f,2.0f);
+    glVertex2f(7.3f,2.0f);
+    glVertex2f(7.3f,1.8f);
+    glVertex2f(7.1f,1.8f);
+    glEnd();
+// Windows
+   if (isDay) {
+        glColor3ub(80, 40, 20);  // Light blue for day windows
+    } else {
+        glColor3ub(40, 20, 10);  // Yellow for night windows
+    }
+    glLineWidth(0.03f);
+    glBegin(GL_LINES);
+    glVertex2f(7.2f,1.8f);
+    glVertex2f(7.2f,1.5f);
+    glEnd();
+
+    // Building 11
+    if (isDay) {
+        glColor3ub(237, 201, 18);  // Steel blue for day
+    } else {
+        glColor3ub(120,100,40);  // Black for night
+    }
+    glBegin(GL_POLYGON);
+    glVertex2f(7.8f,3.9f);
+    glVertex2f(8.4f,3.9f);
+    glVertex2f(8.4f,2.4f);
+    glVertex2f(7.8f,2.4f);
+    glEnd();
+
+    // Building 12
+    if (isDay) {
+        glColor3ub(237, 201, 18);  // Steel blue for day
+    } else {
+        glColor3ub(120,100,40);  // Black for night
+    }
+    glBegin(GL_POLYGON);
+    glVertex2f(7.95f,2.4f);
+    glVertex2f(8.25f,2.4f);
+    glVertex2f(8.25f,2.2f);
+    glVertex2f(7.95f,2.2f);
+    glEnd();
+
+     // Building 13
+    if (isDay) {
+        glColor3ub(237, 201, 18);  // Steel blue for day
+    } else {
+       glColor3ub(120,100,40);  // Black for night
+    }
+    glBegin(GL_POLYGON);
+    glVertex2f(8.05f,2.2f);
+    glVertex2f(8.15f,2.2f);
+    glVertex2f(8.15f,2.05f);
+    glVertex2f(8.05f,2.05f);
+    glEnd();
+
+     // Building 14
+    if (isDay) {
+        glColor3ub(135, 206, 250);  // Steel blue for day
+    } else {
+         glColor3ub(40,70,100);  // Black for night
+    }
+    glBegin(GL_POLYGON);
+    glVertex2f(8.4f,3.9f);
+    glVertex2f(9.0f,3.9f);
+    glVertex2f(9.0f,2.3f);
+    glVertex2f(8.4f,2.3f);
+    glEnd();
+// Windows
+    if (isDay) {
+        glColor3ub(70, 130, 180);  // Light blue for day windows
+    } else {
+        glColor3ub(251, 252, 164);  // Yellow for night windows
+    }
+    glLineWidth(0.03f);
+    glBegin(GL_LINES);
+    glVertex2f(8.4f,2.6f);
+    glVertex2f(9.0f,2.6f);
+    glVertex2f(8.4f,2.9f);
+    glVertex2f(9.0f,2.9f);
+    glVertex2f(8.4f,3.2f);
+    glVertex2f(9.0f,3.2f);
+    glVertex2f(8.4f,3.5f);
+    glVertex2f(9.0f,3.5f);
+    glVertex2f(8.4f,3.8f);
+    glVertex2f(9.0f,3.8f);
+    glEnd();
+
+    // Building 15
+    if (isDay) {
+        glColor3ub(46, 151, 82);  // Steel blue for day
+    } else {
+        glColor3ub(50,80,50);  // Black for night
+    }
+    glBegin(GL_POLYGON);
+    glVertex2f(7.7f,4.1f);
+    glVertex2f(8.2f,4.2f);
+    glVertex2f(8.2f,2.7f);
+    glVertex2f(7.7f,2.7f);
+    glEnd();
+
+    // Building 16
+    if (isDay) {
+        glColor3ub(170, 30, 34);  // Steel blue for day
+    } else {
+         glColor3ub(90,20,20);  // Black for night
+    }
+    glBegin(GL_POLYGON);
+    glVertex2f(8.95f,4.65f);
+    glVertex2f(9.65f,4.65f);
+    glVertex2f(9.65f,2.65f);
+    glVertex2f(8.95f,2.65f);
+    glEnd();
+
+    // Building 17
+    if (isDay) {
+        glColor3ub(100, 80, 60);  // Steel blue for day
+    } else {
+        glColor3ub(60,50,40);  // Black for night
+    }
+    glBegin(GL_POLYGON);
+    glVertex2f(8.95f,4.65f);
+    glVertex2f(9.65f,4.65f);
+    glVertex2f(9.65f,2.65f);
+    glVertex2f(8.95f,2.65f);
+    glEnd();
+
+    // Building 18
+    if (isDay) {
+        glColor3ub(200, 130, 180);  // Steel blue for day
+    } else {
+        glColor3ub(100,80,60);  // Black for night
+    }
+    glBegin(GL_POLYGON);
+    glVertex2f(7.25f,4.0f);
+    glVertex2f(7.7f,4.0f);
+    glVertex2f(7.7f,2.95f);
+    glVertex2f(7.25f,2.95f);
+    glEnd();
+
+    // Building 19
+    if (isDay) {
+        glColor3ub(218, 165, 30);  // Steel blue for day
+    } else {
+         glColor3ub(90,60,20);  // Black for night
+    }
+    glBegin(GL_POLYGON);
+    glVertex2f(9.65f,4.7f);
+    glVertex2f(10.0f,4.7f);
+    glVertex2f(10.0f,3.0f);
+    glVertex2f(9.65f,3.0f);
+    glEnd();
+
+    // Building 20
+    if (isDay) {
+        glColor3ub(218, 165, 32);  // Steel blue for day
+    } else {
+         glColor3ub(90,60,20);  // Black for night
+    }
+    glBegin(GL_POLYGON);
+    glVertex2f(8.3f,4.7f);
+    glVertex2f(8.75f,4.7f);
+    glVertex2f(8.75f,3.3f);
+    glVertex2f(8.3f,3.0f);
+    glEnd();
+
+   // Building 21
+    if (isDay) {
+        glColor3ub(105, 106, 50);  // Steel blue for day
+    } else {
+         glColor3ub(40,45,20);  // Black for night
+    }
+    glBegin(GL_POLYGON);
+    glVertex2f(8.8f,4.9f);
+    glVertex2f(9.4f,4.9f);
+    glVertex2f(9.4f,3.25f);
+    glVertex2f(8.8f,3.7f);
+    glEnd();
+
+  // Building 22
+    if (isDay) {
+        glColor3ub(218, 165, 32);  // Steel blue for day
+    } else {
+         glColor3ub(90,60,20);  // Black for night
+    }
+    glBegin(GL_POLYGON);
+    glVertex2f(9.5f,5.2f);
+    glVertex2f(10.0f,5.2f);
+    glVertex2f(10.0f,4.0f);
+    glVertex2f(9.5f,4.0f);
+    glEnd();
+// Windows
+   if (isDay) {
+        glColor3ub(139, 166, 30);  // Light blue for day windows
+    } else {
+        glColor3ub(251, 252, 164);  // Yellow for night windows
+    }
+    glLineWidth(0.01f);
+    glBegin(GL_LINES);
+    glVertex2f(6.4f,3.4f);
+    glVertex2f(6.4f,2.55f);
+    glVertex2f(6.7f,3.4f);
+    glVertex2f(6.7f,2.55f);
+    glVertex2f(6.4f,2.55f);
+    glVertex2f(6.7f,2.55f);
+    glVertex2f(6.4f,2.7f);
+    glVertex2f(6.7f,2.7f);
+    glVertex2f(6.4f,2.85f);
+    glVertex2f(6.7f,2.85f);
+    glVertex2f(6.4f,3.0f);
+    glVertex2f(6.7f,3.0f);
+    glVertex2f(6.4f,3.15f);
+    glVertex2f(6.7f,3.15f);
+    glVertex2f(6.4f,3.3f);
+    glVertex2f(6.7f,3.3f);
+    glVertex2f(7.25f,4.0f);
+    glVertex2f(7.25f,2.95f);
+    glVertex2f(7.25f,2.95f);
+    glVertex2f(7.7f,2.95f);
+    glVertex2f(7.25f,3.15f);
+    glVertex2f(7.7f,3.15f);
+    glVertex2f(7.25f,3.35f);
+    glVertex2f(7.7f,3.35f);
+    glVertex2f(7.25f,3.55f);
+    glVertex2f(7.7f,3.55f);
+    glVertex2f(7.25f,3.75f);
+    glVertex2f(7.7f,3.75f);
+    glVertex2f(7.25f,3.95f);
+    glVertex2f(7.7f,3.95f);
+    glVertex2f(7.7f,4.1f);
+    glVertex2f(7.7f,2.7f);
+    glVertex2f(7.7f,2.7f);
+    glVertex2f(8.2f,2.7f);
+    glVertex2f(8.2f,2.7f);
+    glVertex2f(8.2f,4.2f);
+    glVertex2f(7.7f,2.9f);
+    glVertex2f(8.2f,2.9f);
+    glVertex2f(7.7f,3.1f);
+    glVertex2f(8.2f,3.1f);
+    glVertex2f(7.7f,3.3f);
+    glVertex2f(8.2f,3.3f);
+    glVertex2f(7.7f,3.5f);
+    glVertex2f(8.2f,3.5f);
+    glVertex2f(7.7f,3.7f);
+    glVertex2f(8.2f,3.7f);
+    glVertex2f(7.7f,3.9f);
+    glVertex2f(8.2f,3.9f);
+    glVertex2f(9.5f,5.2f);
+    glVertex2f(9.5f,4.0f);
+    glVertex2f(9.5f,4.0f);
+    glVertex2f(10.0f,4.0f);
+    glVertex2f(8.8f,4.9f);
+    glVertex2f(8.8f,3.7f);
+    glVertex2f(8.8f,3.7f);
+    glVertex2f(9.4f,3.25f);
+    glVertex2f(9.4f,3.25f);
+    glVertex2f(9.4f,4.9f);
+    glVertex2f(8.3f,4.7f);
+    glVertex2f(8.3f,3.0f);
+    glVertex2f(8.3f,3.0f);
+    glVertex2f(8.75f,3.3f);
+    glVertex2f(8.75f,3.3f);
+    glVertex2f(8.75f,4.7f);
+    glVertex2f(8.75f,3.3f);
+    glVertex2f(8.75f,4.7f);
+    glVertex2f(9.6f,4.0f);
+    glVertex2f(9.6f,3.0f);
+    glVertex2f(9.6f,3.0f);
+    glVertex2f(10.0f,3.0f);
+    glVertex2f(8.4f,3.05f);
+    glVertex2f(8.4f,2.3f);
+    glVertex2f(8.4f,2.3f);
+    glVertex2f(9.0f,2.3f);
+    glVertex2f(9.0f,2.3f);
+    glVertex2f(9.0f,2.65f);
+    glEnd();
+   glPopMatrix();
+}
+
+
+void lake(){
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    if (isDay) {
+        glColor3ub(64, 164, 230); // Light blue for day
+    } else {
+        glColor3ub(19, 17, 96);    // Dark blue for night
+    }
+   glBegin(GL_POLYGON);
+    glVertex2f(-5,8);
+    glVertex2f(20,8);
+    glColor3ub(13,16,34);
+    glVertex2f(5.8f,4.0f);
+    glVertex2f(3.9f,4.0f);
+    glEnd();
+
+}
+void drawCar(float x, float y) {
+    // Car Body (smaller)
+    glColor3ub(255, 0, 0); // Red
+    glBegin(GL_POLYGON);
+    glVertex2f(x, 8 - y);
+    glVertex2f(x + 1.2f, 8 - y);              // was 1.5f
+    glVertex2f(x + 1.2f, 8 - (y + 0.3f));     // was 0.4f
+    glVertex2f(x, 8 - (y + 0.3f));
+    glEnd();
+
+    // Car Top (smaller)
+    glColor3ub(200, 0, 0); // Darker red
+    glBegin(GL_POLYGON);
+    glVertex2f(x + 0.2f, 8 - (y + 0.3f));     // was 0.3f and 0.4f
+    glVertex2f(x + 1.0f, 8 - (y + 0.3f));     // was 1.2f
+    glVertex2f(x + 0.85f, 8 - (y + 0.55f));   // was 1.0f and 0.7f
+    glVertex2f(x + 0.35f, 8 - (y + 0.55f));   // was 0.5f
+    glEnd();
+
+    // Wheels (smaller radius)
+    glColor3ub(0, 0, 0); // Black
+    circle(0.10f, 0.10f, x + 0.25f, 8 - y);   // radius was 0.15f
+    circle(0.10f, 0.10f, x + 1.0f, 8 - y);
+}
+
+void drawPlane(float x, float y) {
+    // ==== Body ====
+    glColor3ub(245, 200, 200); // Golden Yellow
+    glBegin(GL_POLYGON);
+    glVertex2f(x, y);
+    glVertex2f(x + 1.9f, y);               // front bottom
+    glVertex2f(x + 1.4f, y - 0.18f);       // front top
+    glVertex2f(x, y - 0.18f);
+    glEnd();
+
+    // ==== Left Wing ====
+    glColor3ub(180, 180, 180); // Steel Blue
+    glBegin(GL_POLYGON);
+    glVertex2f(x + 0.9f, y - 0.18f);       // attach to body
+    glVertex2f(x + 0.2f, y - 0.45f);       // wing tip
+    glVertex2f(x + 0.3f, y - 0.45f);
+    glVertex2f(x + 0.6f, y - 0.18f);
+    glEnd();
+
+    // ==== Right Wing ====
+    glBegin(GL_POLYGON);
+    glVertex2f(x + 1.1f, y);               // attach to top
+    glVertex2f(x + 0.2f, y + 0.45f);       // tip
+    glVertex2f(x + 0.35f, y + 0.45f);
+    glVertex2f(x + 0.6f, y);
+    glEnd();
+
+    // ==== Tail Wing (vertical stabilizer) ====
+    glColor3ub(180, 180, 180); // Purple Gray
+    glBegin(GL_POLYGON);
+    glVertex2f(x + 0.08f, y - 0.18f);
+    glVertex2f(x + 0.13f, y - 0.18f);
+    glVertex2f(x + 0.13f, y - 0.35f);
+    glVertex2f(x + 0.08f, y - 0.35f);
+    glEnd();
+
+    // ==== Nose ====
+    glColor3ub(100, 100, 100); // Light Gray
+    glBegin(GL_TRIANGLES);
+    glVertex2f(x + 1.4f, y);
+    glVertex2f(x + 1.6f, y - 0.09f);
+    glVertex2f(x + 1.4f, y - 0.18f);
+    glEnd();
+}
+void drawLamppost(float x, float y) {
+    // ====== Base ======
+    glColor3ub(100, 100, 100); // Dark gray
+    glBegin(GL_POLYGON);
+    glVertex2f(x - 0.1f, y);
+    glVertex2f(x + 0.1f, y);
+    glVertex2f(x + 0.1f, y - 0.3f);  // was +0.3
+    glVertex2f(x - 0.1f, y - 0.3f);
+    glEnd();
+
+    // ====== Pole ======
+    glBegin(GL_POLYGON);
+    glVertex2f(x - 0.05f, y - 0.3f);
+    glVertex2f(x + 0.05f, y - 0.3f);
+    glVertex2f(x + 0.05f, y - 2.0f); // was +2.0
+    glVertex2f(x - 0.05f, y - 2.0f);
+    glEnd();
+
+    // ====== Lamp Head ======
+    glBegin(GL_TRIANGLES);
+    glVertex2f(x - 0.15f, y - 2.0f);
+    glVertex2f(x + 0.15f, y - 2.0f);
+    glVertex2f(x, y - 2.3f);
+    glEnd();
+
+    // ====== Light Circle (Night Only) ======
+    if (!isDay) {
+        glColor3ub(255, 255, 100); // Warm yellow
+        float radius = 0.2f;
+        int triangleAmount = 40;
+        float twicePi = 2.0f * 3.1416f;
+
+        glBegin(GL_TRIANGLE_FAN);
+        glVertex2f(x, y - 1.7f); // light center
+        for (int i = 0; i <= triangleAmount; i++) {
+            glVertex2f(
+                x + (radius * cos(i * twicePi / triangleAmount)),
+                y - 1.7f + (radius * sin(i * twicePi / triangleAmount))
+            );
+        }
+        glEnd();
+    }
+}
+void drawBigTree(float x, float y) {
+    const float scale = 0.4f; // Scale factor for smaller size
+
+    // Trunk
+    glColor3ub(150, 75, 0);
+    glBegin(GL_POLYGON);
+        glVertex2f(x + 0.6f * scale, 8 - (y + 0.0f * scale));
+        glVertex2f(x + 1.2f * scale, 8 - (y + 0.0f * scale));
+        glVertex2f(x + 1.6f * scale, 8 - (y + 3.0f * scale));
+        glVertex2f(x + 0.2f * scale, 8 - (y + 3.0f * scale));
+    glEnd();
+
+    // Bottom foliage
+    glColor3ub(0, 100, 0);
+    glBegin(GL_POLYGON);
+        glVertex2f(x + 1.1f * scale, 8 - (y + 6.0f * scale));
+        glVertex2f(x - 2.0f * scale, 8 - (y + 2.7f * scale));
+        glVertex2f(x + 4.0f * scale, 8 - (y + 2.7f * scale));
+    glEnd();
+
+    // Middle foliage
+    glColor3ub(0, 128, 0);
+    glBegin(GL_POLYGON);
+        glVertex2f(x + 1.0f * scale, 8 - (y + 7.0f * scale));
+        glVertex2f(x - 3.0f * scale, 8 - (y + 3.0f * scale));
+        glVertex2f(x + 5.0f * scale, 8 - (y + 3.0f * scale));
+    glEnd();
+
+    // Extra foliage
+    glColor3ub(0, 100, 0);
+    glBegin(GL_POLYGON);
+        glVertex2f(x + 1.0f * scale, 8 - (y + 7.0f * scale));
+        glVertex2f(x - 3.0f * scale, 8 - (y + 4.0f * scale));
+        glVertex2f(x + 5.0f * scale, 8 - (y + 4.0f * scale));
+    glEnd();
+
+    glColor3ub(0, 128, 0);
+    glBegin(GL_POLYGON);
+        glVertex2f(x + 1.0f * scale, 8 - (y + 7.0f * scale));
+        glVertex2f(x - 3.0f * scale, 8 - (y + 5.0f * scale));
+        glVertex2f(x + 5.0f * scale, 8 - (y + 5.0f * scale));
+    glEnd();
+}
+void drawClockTower(float x, float y, float timeAngle) {
+    // Tower base
+    if (isDay)
+        glColor3ub(160, 160, 160); // Light gray for day
+    else
+        glColor3ub(60, 60, 60);    // Dark gray for night
+    glBegin(GL_POLYGON);
+    glVertex2f(x, y);
+    glVertex2f(x + 0.8f, y);
+    glVertex2f(x + 0.8f, y + 2.5f);
+    glVertex2f(x, y + 2.5f);
+    glEnd();
+
+    // Roof
+    if (isDay)
+        glColor3ub(200, 200, 200); // Brighter roof for day
+    else
+        glColor3ub(100, 100, 100); // Darker roof for night
+    glBegin(GL_TRIANGLES);
+    glVertex2f(x - 0.1f, y);
+    glVertex2f(x + 0.9f, y);
+    glVertex2f(x + 0.4f, y - 0.6f); // was y + 0.6f
+    glEnd();
+
+    // Clock face
+      if (isDay)
+        glColor3ub(255, 255, 255); // White clock face in day
+    else
+        glColor3ub(255, 255, 100); // Slightly bluish at night
+
+    circle(0.25f, 0.25f, x + 0.4f, y + 0.4f); // was y - 1.2f
+
+    // Clock border
+    glColor3ub(0, 0, 0);
+    glLineWidth(2);
+    glBegin(GL_LINE_LOOP);
+    for (int i = 0; i <= 100; i++) {
+        float angle = 2.0f * 3.1416f * i / 100;
+        float dx = 0.25f * cosf(angle);
+        float dy = 0.25f * sinf(angle);
+        glVertex2f(x + 0.4f + dx, y + 0.4f + dy); // was y - 1.2f
+    }
+    glEnd();
+
+    // Minute hand (FIXED rotation)
+    glPushMatrix();
+    glTranslatef(x + 0.4f, y + 0.4f, 0); // was y - 1.2f
+    glRotatef(timeAngle, 0.0, 0.0, 1.0);
+// Rotate clockwise due to flipped Y
+    glColor3ub(0, 0, 0);
+    glBegin(GL_LINES);
+    glVertex2f(0, 0);
+    glVertex2f(0.0f, 0.2f);
+    glEnd();
+    glPopMatrix();
+}
+
+
+
+
+
+
+
+void boat(){
+    glColor3ub(210, 229, 252);
+    circle3(0.03f, 0.03f, tx+1.45f, ty+3.22f);  // Lowered y-position
+    circle3(0.04f, 0.08f, tx+1.45f, ty+3.33f);  // Lowered y-position
+
+    glColor3ub(0,0,0);
+    glBegin(GL_POLYGON);
+    glVertex2f(tx+1.3f, ty+5.6f);
+    glVertex2f(tx+2.0f, ty+5.55f);
+    glVertex2f(tx+1.95f, ty+5.35f);
+    glVertex2f(tx+1.3f, ty+5.45f);
+    glEnd();
+
+    glColor3ub(0,0,0);
+    glBegin(GL_POLYGON);
+    glVertex2f(tx+1.27f, ty+5.45f);
+    glVertex2f(tx+1.37f, ty+5.45f);
+    glVertex2f(tx+1.36f, ty+5.38f);
+    glVertex2f(tx+1.27f, ty+5.34f);
+    glEnd();
+
+    glColor3ub(0,0,0);
+    glBegin(GL_POLYGON);
+    glVertex2f(tx+1.95f, ty+5.35f);
+    glVertex2f(tx+2.15f, ty+5.25f);
+    glVertex2f(tx+2.0f, ty+5.55f);
+    glEnd();
+}
+
+
+void Draw()
+{
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    fullSky();
+    if (isDay) {
+    sun();
+} else {
+    moon();
+}
+
+    fullBottom();
+    cloud1();
+    cloud2();
+    cloud3();
+    if (isPlaneActive) {
+    drawPlane(planePosX, 1.0f);
+}
+
+    glPushMatrix();
+glTranslatef(0.0f, 1.2f, 0.0f);
+drawCar(car1PosX, 5.5f); // First car
+drawCar(car2PosX, 5.5f); // Second car
+drawCar(car3PosX, 5.5f); // Third car
+
+    bridge_pillar();
+    bridge_road();
+    // Lampposts behind the road (Y = 2.5 or 3.0 usually looks good)
+drawLamppost(3.0f, 2.8f);
+drawLamppost(7.0f, 2.8f);
+drawLamppost(11.0f, 2.8f);
+drawLamppost(15.0f, 2.8f);
+
+
+    bridge_body();
+    bridge_under();
+    left_city();
+
+drawClockTower(-2.6f, 3.0f, clockAngle); // Adjust position as needed
+
+    right_city();
+
+bench_beside_campfire();
+    campfire();
+
+    drawBigTree(-3.6f, 1.0f);
+drawBigTree(17.0f, .5f);
+    lake();
+    glPopMatrix();
+
+    glPushMatrix();
+    glTranslatef(tx,ty,0);
+ glPushMatrix();
+    glTranslatef(tx, ty + 1.2f, 0.0f); // boat movement only
+    boat();
+    glPopMatrix();
+
+
+
+    glFlush();
+}
+
+int main(int argc, char** argv) {
+    glutInit(&argc, argv);
+    glutInitDisplayMode(GLUT_SINGLE | GLUT_RGB);
+    glutInitWindowSize(1000, 600);
+    glutInitWindowPosition(0, 0);
+    glutCreateWindow("Day Night in City Rain || 22-47271-1 || Final Project");
+
+    init();
+
+    glutDisplayFunc(Draw);
+    glutSpecialFunc(spe_key);
+    glutKeyboardFunc(my_keyboard);
+    glutMouseFunc(my_mouse);
+
+   glutIdleFunc(updateScene);   // ✅ Use combined updater
+
+
+
+
+    glutMainLoop();
+    return 0;
+}
+void updateScene() {
+    moveCars();
+    clockAngle += 0.05f;
+    if (clockAngle >= 360.0f) clockAngle -= 360.0f;
+
+    if (isRaining) {
+        rain();
+    }
+
+    glutPostRedisplay();
+}
+
